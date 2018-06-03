@@ -1,4 +1,3 @@
-import cheerio from 'cheerio';
 import csvWriterStream from 'csv-write-stream';
 import fs from 'fs';
 
@@ -20,24 +19,40 @@ class Crawler {
   }
 
   fetchNewURLs(body) {
-    let $ = cheerio.load(body);
-
     let links = [];
-    $("a[href^='/']").each(function() {
-      links.push("http://www.medium.com/" + $(this).attr('href'));
-    });
 
-    $("a[href^='http']").each(function() {
-      if($(this).attr('href').indexOf("medium.com") > -1){
-        links.push($(this).attr('href'));
+    while (body.length > 0) {
+      let atagIndex = body.indexOf('<a');
+      if(atagIndex == -1) {
+        break;
       }
-    });
+      body = body.substring(atagIndex);
+      let atagCloseIndex = body.indexOf('>');
+      let atag = body.substring(0, atagCloseIndex);
+      let linkStart = atag.indexOf('href=');
 
-    $("a[href^='https']").each(function() {
-      if($(this).attr('href').indexOf("medium.com") > -1){
-        links.push($(this).attr('href'));
+      let linkCloseIndex;
+      if(linkStart != -1) {
+        atag = atag.substring(linkStart+5);
+        if(atag[0] == '"') {
+           linkCloseIndex = atag.substring(1).search('"');
+        } else if(atag[0] == "'") {
+           linkCloseIndex = atag.substring(1).search("'");
+        }
+
+        if(linkCloseIndex != undefined) {
+          let link = atag.substring(1, linkCloseIndex);
+          if(link.startsWith('http') && link.indexOf('medium.com') > -1) {
+            links.push(link);
+          } else if (link.startsWith('//')) {
+            links.push("http:" + link);
+          } else if(link.startsWith('/')) {
+            links.push("http://www.medium.com/" + link);
+          }
+        }
       }
-    });
+      body = body.substring(atagCloseIndex + 1);
+    }
 
     return links;
   }
