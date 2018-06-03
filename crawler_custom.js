@@ -9,8 +9,15 @@ class CrawlerCustom extends Crawler {
   }
 
   start(initURL) {
-    console.log("Initializing...");
+    this.current_message = "Initializing...";
+    this.log();
     this.updateLiveConnections(1);
+
+    //mark as visited
+    //Marking it before process to avoid adding duplication during a process.
+    this.url_visited[initURL] = true;
+    this.current_queue[initURL] = true;
+    this.log();
 
     //writer object
     let writerRow = {
@@ -22,9 +29,12 @@ class CrawlerCustom extends Crawler {
     };
     let self = this;
     request(initURL, (error, response, body) => {
+      delete this.current_queue[initURL];
+      this.log();
       if(error) {
         self.updateLiveConnections(-1);
-        console.log(error.message);
+        this.current_message = error.message;
+        this.log();
         //Write to CSV File
         writerRow.ended_on = new Date();
         writerRow.response_code = 'Error';
@@ -39,18 +49,18 @@ class CrawlerCustom extends Crawler {
           let links = self.fetchNewURLs(body);
 
           //Write to CSV File
-          writerRow.ended_on = new Date();
+          writerRow.ended_on      = new Date();
           writerRow.response_code = response.statusCode;
-          writerRow.num_links = links.length;
+          writerRow.num_links     = links.length;
           self.writer.write(writerRow);
+
+          //Update URL List
           self.url_list = self.url_list.concat(links);
 
           //Start the concurrent connections
-          self.crawl();
-          self.crawl();
-          self.crawl();
-          self.crawl();
-          self.crawl();
+          for(let i = 0; i < self.concurrency; i++) {
+            self.crawl();
+          }
         } else {
           self.updateLiveConnections(-1);
           //Write to CSV File
@@ -67,7 +77,9 @@ class CrawlerCustom extends Crawler {
 
   crawl() {
     if(!this.url_list.length) {
-      console.log("URL List Empty");
+      this.current_message = "All URLs processed.";
+      this.log();
+      this.writer.end();
       return;
     }
 
@@ -79,12 +91,16 @@ class CrawlerCustom extends Crawler {
       return this.crawl();
     }
 
-    console.log("Crawling: ", newURL);
+    this.current_message = "Crawling: " + newURL;
+    this.log();
 
     this.updateLiveConnections(1);
 
     //mark as visited
+    //Marking it before process to avoid adding duplication during a process.
     this.url_visited[newURL] = true;
+    this.current_queue[newURL] = true;
+    this.log();
 
     //writer object
     let writerRow = {
@@ -97,6 +113,8 @@ class CrawlerCustom extends Crawler {
 
     let self = this;
     request(newURL, (error, response, body) => {
+      delete this.current_queue[newURL];
+      this.log();
       if(error) {
         self.updateLiveConnections(-1);
         //Add new crawler to the queue.
@@ -104,13 +122,16 @@ class CrawlerCustom extends Crawler {
       } else if(response.statusCode === 200) {
         //Fecth new links.
         let links = self.fetchNewURLs(body);
-        self.url_list = self.url_list.concat(links);
 
         //Write to CSV File
-        writerRow.ended_on = new Date();
+        writerRow.ended_on      = new Date();
         writerRow.response_code = response.statusCode;
-        writerRow.num_links = links.length;
+        writerRow.num_links     = links.length;
         self.writer.write(writerRow);
+
+        //Update URL List
+        self.url_list = self.url_list.concat(links);
+
         self.updateLiveConnections(-1);
 
         //Add new crawler to the queue.
