@@ -4,4 +4,4 @@
   3. `npm install`
   5. `npm start async` or `npm start custom`
 
-  All links are stored in 'logs.csv'
+  All links are stored in `logs.csv`
