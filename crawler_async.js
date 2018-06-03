@@ -7,10 +7,16 @@ class CrawlerAsync extends Crawler {
   constructor(concurrency) {
     super(concurrency)
     this.queue = async.queue(this.crawl.bind(this), concurrency);
+    this.queue.drain = () => {
+      this.current_message = "All URLs processed.";
+      this.log();
+      this.writer.end();
+    }
   }
 
   start(initURL) {
-    console.log("Initializing...");
+    this.current_message = "Initializing...";
+    this.log();
     this.queue.push(initURL);
   }
 
@@ -18,10 +24,16 @@ class CrawlerAsync extends Crawler {
     if(url in this.url_visited) {
       return callback();
     }
-    console.log("Crawling: ", url);
+    this.current_message = "Crawling: " + url;
+    this.log();
+
     this.updateLiveConnections(1);
-    //mark as visited
+
+    //mark as visited.
+    //Marking it before process to avoid adding duplication during a process.
     this.url_visited[url] = true;
+    this.current_queue[url] = true;
+    this.log();
 
     //writer object
     let writerRow = {
@@ -34,6 +46,8 @@ class CrawlerAsync extends Crawler {
 
     let self = this;
     request(url, (error, response, body) => {
+      delete this.current_queue[url];
+      this.log();
       if(error) {
         self.updateLiveConnections(-1);
         return callback();
