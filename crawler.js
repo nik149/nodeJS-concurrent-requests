@@ -6,15 +6,17 @@ class Crawler {
 
   constructor(concurrency) {
     this.concurrency      = concurrency;
-    this.liveConnections  = 0;
+    this.live_connections  = 0;
     this.url_visited      = {};
     this.writer           = csvWriterStream();
+    this.current_queue     = {};
+    this.current_message   = '';
     this.writer.pipe(fs.createWriteStream('logs.csv'));
   }
 
   updateLiveConnections(i) {
-    this.liveConnections += i;
-    console.log("Num Connections: ", this.liveConnections);
+    this.live_connections += i;
+    this.log();
   }
 
   fetchNewURLs(body) {
@@ -38,6 +40,19 @@ class Crawler {
     });
 
     return links;
+  }
+
+  log() {
+    process.stdout.write("\x1B[2J");
+    process.stdout.clearLine();
+    process.stdout.cursorTo(0,0);
+    process.stdout.write("Live Connections : " + this.live_connections + "\n");
+    process.stdout.write("URLs Processed : " + Object.keys(this.url_visited).length + "\n");
+    process.stdout.write(this.current_message + "\n");
+    process.stdout.write("Current Queue: " + "\n");
+    Object.keys(this.current_queue).forEach(key => {
+      process.stdout.write(key + "\n");
+    });
   }
 }
 
